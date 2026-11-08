@@ -539,6 +539,22 @@ def test_collections_namedtuple(nt: type) -> None:
     assert_frame_equal(result, expected)
 
 
+def test_tuple_subclass_with_permissive_getattr() -> None:
+    # tuple subclasses returning `None` for unknown attributes (such as trino's
+    # `NamedRowTuple`) look like they have `_fields`, but are not namedtuples
+    class PermissiveTuple(tuple):  # type: ignore[type-arg]
+        def __getattr__(self, name: str) -> Any:
+            return None
+
+    assert PermissiveTuple((1, 2))._fields is None
+
+    s = pl.Series("x", [PermissiveTuple((1, 2)), PermissiveTuple((3, 4))])
+    assert_series_equal(s, pl.Series("x", [[1, 2], [3, 4]]))
+
+    df = pl.DataFrame({"x": [PermissiveTuple((1, 2))], "y": ["a"]})
+    assert_frame_equal(df, pl.DataFrame({"x": [[1, 2]], "y": ["a"]}))
+
+
 def test_init_ndarray() -> None:
     # Empty array
     df = pl.DataFrame(np.array([]))

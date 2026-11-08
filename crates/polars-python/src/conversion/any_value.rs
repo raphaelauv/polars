@@ -665,8 +665,13 @@ pub(crate) fn py_object_to_any_value(
         } else if ob.is_instance_of::<PyBytes>() {
             Ok(get_bytes)
         } else if ob.is_instance_of::<PyTuple>() {
-            // NamedTuple-like object?
-            if ob.hasattr(intern!(py, "_fields"))? {
+            // NamedTuple-like object? Check that `_fields` is a tuple, as some
+            // tuple subclasses return `None` for any attribute (eg: trino's
+            // `NamedRowTuple`), which would otherwise fail in `get_namedtuple`.
+            if ob
+                .getattr_opt(intern!(py, "_fields"))?
+                .is_some_and(|fields| fields.is_instance_of::<PyTuple>())
+            {
                 Ok(get_namedtuple)
             } else {
                 Ok(get_list)
